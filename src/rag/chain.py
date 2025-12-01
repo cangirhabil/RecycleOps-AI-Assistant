@@ -58,7 +58,7 @@ class RAGChain:
         self.retriever = retriever or get_solution_retriever()
         self.generator = generator or get_generator()
     
-    async def query(
+    def query(
         self,
         question: str,
         n_results: int = 3,
@@ -89,13 +89,13 @@ class RAGChain:
         
         # Step 1: Retrieve relevant documents
         if conversation_context:
-            retrieved_docs = await self.retriever.retrieve_with_context(
+            retrieved_docs = self.retriever.retrieve_with_context(
                 query=question,
                 conversation_context=conversation_context,
                 n_results=n_results,
             )
         else:
-            retrieved_docs = await self.retriever.retrieve(
+            retrieved_docs = self.retriever.retrieve(
                 query=question,
                 n_results=n_results,
                 min_similarity=min_similarity,
@@ -110,7 +110,7 @@ class RAGChain:
             avg_confidence = 0.0
         
         # Step 2: Generate response
-        answer = await self.generator.generate_solution_response(
+        answer = self.generator.generate_solution_response(
             query=question,
             retrieved_solutions=retrieved_docs,
             conversation_context=conversation_context,
@@ -144,7 +144,7 @@ class RAGChain:
         
         return response
     
-    async def analyze_thread(
+    def analyze_thread(
         self,
         messages: list[dict],
     ) -> dict:
@@ -157,9 +157,9 @@ class RAGChain:
         Returns:
             Extracted solution information
         """
-        return await self.generator.analyze_conversation(messages)
+        return self.generator.analyze_conversation(messages)
     
-    async def get_proactive_suggestion(
+    def get_proactive_suggestion(
         self,
         error_text: str,
         min_similarity: float = 0.7,
@@ -175,7 +175,7 @@ class RAGChain:
             Suggestion message or None if no good match
         """
         # Retrieve similar solutions
-        similar_solutions = await self.retriever.retrieve(
+        similar_solutions = self.retriever.retrieve(
             query=error_text,
             n_results=3,
             min_similarity=min_similarity,
@@ -186,7 +186,7 @@ class RAGChain:
             return None
         
         # Generate suggestion
-        suggestion = await self.generator.generate_proactive_suggestion(
+        suggestion = self.generator.generate_proactive_suggestion(
             error_text=error_text,
             similar_solutions=similar_solutions,
         )

@@ -32,7 +32,7 @@ class SolutionRetriever:
         """
         self.vector_store = vector_store or get_vector_store()
     
-    async def retrieve(
+    def retrieve(
         self,
         query: str,
         n_results: int = 3,
@@ -79,7 +79,7 @@ class SolutionRetriever:
         
         return results
     
-    async def retrieve_by_error_pattern(
+    def retrieve_by_error_pattern(
         self,
         error_pattern: str,
         n_results: int = 5,
@@ -98,13 +98,13 @@ class SolutionRetriever:
             List of matching solutions
         """
         # Use a higher similarity threshold for pattern matching
-        return await self.retrieve(
+        return self.retrieve(
             query=error_pattern,
             n_results=n_results,
             min_similarity=settings.similarity_threshold,
         )
     
-    async def retrieve_with_context(
+    def retrieve_with_context(
         self,
         query: str,
         conversation_context: str,
@@ -127,7 +127,7 @@ class SolutionRetriever:
         # Combine query and context
         combined_query = f"{query}\n\nBağlam:\n{conversation_context[:500]}"
         
-        return await self.retrieve(
+        return self.retrieve(
             query=combined_query,
             n_results=n_results,
             min_similarity=settings.similarity_threshold * 0.8,  # Slightly lower threshold
@@ -144,7 +144,7 @@ class ConversationRetriever:
     def __init__(self, vector_store: Optional[VectorStore] = None):
         self.vector_store = vector_store or get_vector_store()
     
-    async def retrieve_similar_conversations(
+    def retrieve_similar_conversations(
         self,
         query: str,
         n_results: int = 5,

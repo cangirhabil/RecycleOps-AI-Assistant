@@ -34,12 +34,12 @@ class Settings(BaseSettings):
             return []
         return [ch.strip() for ch in self.slack_monitor_channels.split(",") if ch.strip()]
     
-    # --- OpenAI Configuration ---
-    openai_api_key: str = Field(..., description="OpenAI API Key")
-    openai_model: str = Field(default="gpt-4o-mini", description="OpenAI Model for generation")
-    openai_embedding_model: str = Field(
-        default="text-embedding-3-small",
-        description="OpenAI Model for embeddings"
+    # --- Google Gemini Configuration ---
+    google_api_key: str = Field(..., description="Google AI API Key")
+    gemini_model: str = Field(default="gemini-2.5-flash", description="Gemini Model for generation")
+    gemini_embedding_model: str = Field(
+        default="models/text-embedding-004",
+        description="Gemini Model for embeddings"
     )
     
     # --- PostgreSQL Configuration ---

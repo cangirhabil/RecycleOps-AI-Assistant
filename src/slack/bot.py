@@ -26,9 +26,11 @@ def create_slack_app() -> App:
     logger.info("Creating Slack application...")
     
     # Create the Slack Bolt app
+    # process_before_response=True is needed for Socket Mode with async handlers
     app = App(
         token=settings.slack_bot_token,
         signing_secret=settings.slack_signing_secret,
+        process_before_response=True,
     )
     
     # Register middleware

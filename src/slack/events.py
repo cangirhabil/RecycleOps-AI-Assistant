@@ -3,6 +3,7 @@ RecycleOps AI Assistant - Slack Event Handlers
 
 Handlers for Slack events like messages, reactions, etc.
 """
+import asyncio
 import re
 from datetime import datetime
 from typing import Optional
@@ -74,7 +75,7 @@ def extract_error_info(text: str) -> dict:
     return info
 
 
-async def handle_message(
+def handle_message(
     event: dict,
     client: WebClient,
     logger: structlog.BoundLogger,
@@ -111,13 +112,13 @@ async def handle_message(
     # Track conversation
     try:
         conversation_service = ConversationService()
-        await conversation_service.track_message(
+        asyncio.run(conversation_service.track_message(
             channel_id=channel_id,
             thread_ts=thread_ts or ts,  # Use message ts as thread_ts for parent messages
             message_ts=ts,
             user_id=user_id,
             text=text,
-        )
+        ))
     except Exception as e:
         logger.error("Failed to track conversation", error=str(e))
     
@@ -132,17 +133,17 @@ async def handle_message(
         if settings.proactive_support_enabled:
             try:
                 proactive_service = ProactiveService(client)
-                await proactive_service.suggest_solution(
+                asyncio.run(proactive_service.suggest_solution(
                     channel_id=channel_id,
                     thread_ts=ts,
                     error_text=text,
                     error_info=error_info,
-                )
+                ))
             except Exception as e:
                 logger.error("Failed to provide proactive support", error=str(e))
 
 
-async def handle_app_mention(
+def handle_app_mention(
     event: dict,
     client: WebClient,
     say,
@@ -163,7 +164,7 @@ async def handle_app_mention(
     clean_text = re.sub(r"<@[A-Z0-9]+>", "", text).strip()
     
     if not clean_text:
-        await say(
+        say(
             text="Merhaba! Size nasıl yardımcı olabilirim? Bir hata açıklaması yazın, "
                  "geçmiş çözümlerimden öneriler sunayım. 🔧",
             thread_ts=thread_ts,
@@ -180,21 +181,21 @@ async def handle_app_mention(
     # Search for solutions
     try:
         proactive_service = ProactiveService(client)
-        await proactive_service.respond_to_mention(
+        asyncio.run(proactive_service.respond_to_mention(
             channel_id=channel_id,
             thread_ts=thread_ts,
             user_id=user_id,
             query=clean_text,
-        )
+        ))
     except Exception as e:
         logger.error("Failed to handle app mention", error=str(e))
-        await say(
+        say(
             text="⚠️ Üzgünüm, bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
             thread_ts=thread_ts,
         )
 
 
-async def handle_reaction_added(
+def handle_reaction_added(
     event: dict,
     client: WebClient,
     logger: structlog.BoundLogger,
@@ -244,16 +245,16 @@ def register_event_handlers(app: App) -> None:
     """
     
     @app.event("message")
-    async def message_handler(event, client, logger):
-        await handle_message(event, client, logger)
+    def message_handler(event, client, logger):
+        handle_message(event, client, logger)
     
     @app.event("app_mention")
-    async def app_mention_handler(event, client, say, logger):
-        await handle_app_mention(event, client, say, logger)
+    def app_mention_handler(event, client, say, logger):
+        handle_app_mention(event, client, say, logger)
     
     @app.event("reaction_added")
-    async def reaction_added_handler(event, client, logger):
-        await handle_reaction_added(event, client, logger)
+    def reaction_added_handler(event, client, logger):
+        handle_reaction_added(event, client, logger)
     
     # Log unhandled events for debugging
     @app.event({"type": re.compile(".*")})

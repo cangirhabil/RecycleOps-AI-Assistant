@@ -2,74 +2,53 @@
 RecycleOps AI Assistant - Vector Store
 
 ChromaDB integration for semantic search and solution retrieval.
+Uses Google Gemini embeddings.
 """
-import uuid
 from typing import Optional
 from pathlib import Path
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from chromadb.utils import embedding_functions
 import structlog
 
 from src.config import settings
+from src.rag.embeddings import get_embeddings, embed_text
 
 
 logger = structlog.get_logger(__name__)
 
 # Global ChromaDB client and collections
 _chroma_client: Optional[chromadb.PersistentClient] = None
-_solutions_collection: Optional[chromadb.Collection] = None
-_conversations_collection: Optional[chromadb.Collection] = None
-
-
-def get_embedding_function():
-    """Get the OpenAI embedding function for ChromaDB."""
-    return embedding_functions.OpenAIEmbeddingFunction(
-        api_key=settings.openai_api_key,
-        model_name=settings.openai_embedding_model,
-    )
+_solutions_collection = None
+_conversations_collection = None
 
 
 def init_vector_store() -> None:
     """Initialize ChromaDB client and collections."""
     global _chroma_client, _solutions_collection, _conversations_collection
     
-    # Ensure persist directory exists
-    persist_path = Path(settings.chroma_persist_directory)
-    persist_path.mkdir(parents=True, exist_ok=True)
+    logger.info("Initializing ChromaDB (in-memory)...")
     
-    logger.info(
-        "Initializing ChromaDB...",
-        persist_directory=str(persist_path),
-    )
-    
-    # Create ChromaDB client with persistence
-    _chroma_client = chromadb.PersistentClient(
-        path=str(persist_path),
+    # Create ChromaDB client (in-memory for stability)
+    _chroma_client = chromadb.Client(
         settings=ChromaSettings(
             anonymized_telemetry=False,
             allow_reset=True,
         ),
     )
     
-    # Get embedding function
-    embedding_fn = get_embedding_function()
-    
-    # Create or get solutions collection
+    # Create or get solutions collection (we'll embed manually with Gemini)
     _solutions_collection = _chroma_client.get_or_create_collection(
         name="solutions",
-        embedding_function=embedding_fn,
         metadata={
             "description": "Solution embeddings for error pattern matching",
-            "hnsw:space": "cosine",  # Use cosine similarity
+            "hnsw:space": "cosine",
         },
     )
     
     # Create or get conversations collection
     _conversations_collection = _chroma_client.get_or_create_collection(
         name="conversations",
-        embedding_function=embedding_fn,
         metadata={
             "description": "Conversation embeddings for context retrieval",
             "hnsw:space": "cosine",
@@ -83,14 +62,14 @@ def init_vector_store() -> None:
     )
 
 
-def get_solutions_collection() -> chromadb.Collection:
+def get_solutions_collection():
     """Get the solutions collection."""
     if _solutions_collection is None:
         raise RuntimeError("Vector store not initialized. Call init_vector_store() first.")
     return _solutions_collection
 
 
-def get_conversations_collection() -> chromadb.Collection:
+def get_conversations_collection():
     """Get the conversations collection."""
     if _conversations_collection is None:
         raise RuntimeError("Vector store not initialized. Call init_vector_store() first.")
@@ -100,7 +79,14 @@ def get_conversations_collection() -> chromadb.Collection:
 class VectorStore:
     """High-level interface for vector store operations."""
     
+    _initialized = False
+    
     def __init__(self):
+        # Use class-level flag to avoid re-initialization
+        if not VectorStore._initialized:
+            if _solutions_collection is None:
+                init_vector_store()
+            VectorStore._initialized = True
         self.solutions = get_solutions_collection()
         self.conversations = get_conversations_collection()
     
@@ -123,15 +109,19 @@ class VectorStore:
         # Combine error pattern and solution for richer embeddings
         combined_text = f"Hata: {error_pattern}\n\nÇözüm: {solution_text}"
         
+        # Get embedding from Gemini
+        embedding = embed_text(combined_text)
+        
         # Prepare metadata
         meta = metadata or {}
         meta.update({
-            "error_pattern": error_pattern[:500],  # Truncate for metadata limits
+            "error_pattern": error_pattern[:500],
             "solution_preview": solution_text[:500],
         })
         
         self.solutions.add(
             ids=[solution_id],
+            embeddings=[embedding],
             documents=[combined_text],
             metadatas=[meta],
         )
@@ -151,6 +141,9 @@ class VectorStore:
         """Update an existing solution in the vector store."""
         combined_text = f"Hata: {error_pattern}\n\nÇözüm: {solution_text}"
         
+        # Get embedding from Gemini
+        embedding = embed_text(combined_text)
+        
         meta = metadata or {}
         meta.update({
             "error_pattern": error_pattern[:500],
@@ -159,6 +152,7 @@ class VectorStore:
         
         self.solutions.update(
             ids=[solution_id],
+            embeddings=[embedding],
             documents=[combined_text],
             metadatas=[meta],
         )
@@ -192,8 +186,11 @@ class VectorStore:
         Returns:
             List of matching solutions with scores
         """
+        # Get query embedding from Gemini
+        query_embedding = embed_text(query)
+        
         results = self.solutions.query(
-            query_texts=[query],
+            query_embeddings=[query_embedding],
             n_results=n_results,
             where=filter_metadata,
             include=["documents", "metadatas", "distances"],
@@ -231,11 +228,15 @@ class VectorStore:
         metadata: Optional[dict] = None,
     ) -> None:
         """Add a conversation to the vector store."""
+        # Get embedding from Gemini
+        embedding = embed_text(conversation_text)
+        
         meta = metadata or {}
         meta["preview"] = conversation_text[:500]
         
         self.conversations.add(
             ids=[conversation_id],
+            embeddings=[embedding],
             documents=[conversation_text],
             metadatas=[meta],
         )
@@ -252,8 +253,11 @@ class VectorStore:
         filter_metadata: Optional[dict] = None,
     ) -> list[dict]:
         """Search for similar conversations."""
+        # Get query embedding from Gemini
+        query_embedding = embed_text(query)
+        
         results = self.conversations.query(
-            query_texts=[query],
+            query_embeddings=[query_embedding],
             n_results=n_results,
             where=filter_metadata,
             include=["documents", "metadatas", "distances"],

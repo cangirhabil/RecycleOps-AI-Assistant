@@ -2,7 +2,7 @@
 RecycleOps AI Assistant - Slack Slash Commands
 
 Implementation of slash commands:
-- /search [query] - Search for solutions
+- /cozum-ara [query] - Search for solutions
 - /cozum-getir - Get solution for current thread
 - /cozum-ekle - Add current thread as a solution
 """
@@ -21,30 +21,30 @@ from src.services.conversation_service import ConversationService
 logger = structlog.get_logger(__name__)
 
 
-async def handle_search_command(
+def handle_search_command(
     ack: Ack,
     respond: Respond,
     command: dict,
     client: WebClient,
 ) -> None:
     """
-    Handle /search command.
+    Handle /cozum-ara command.
     
-    Usage: /search [sorun tanımı]
-    Example: /search A1100 şişe sıkışması
+    Usage: /cozum-ara [sorun tanımı]
+    Example: /cozum-ara A1100 şişe sıkışması
     
     Searches the knowledge base for similar past solutions.
     """
-    await ack()
+    ack()
     
     query = command.get("text", "").strip()
     user_id = command.get("user_id")
     channel_id = command.get("channel_id")
     
     if not query:
-        await respond(
+        respond(
             text="❓ Lütfen aranacak bir sorun tanımı girin.\n"
-                 "Örnek: `/search A1100 şişe sıkışması`",
+                 "Örnek: `/cozum-ara A1100 şişe sıkışması`",
             response_type="ephemeral",
         )
         return
@@ -57,7 +57,7 @@ async def handle_search_command(
     )
     
     # Show searching indicator
-    await respond(
+    respond(
         text=f"🔍 *\"{query}\"* için geçmiş çözümler aranıyor...",
         response_type="ephemeral",
     )
@@ -65,14 +65,14 @@ async def handle_search_command(
     try:
         # Search for solutions
         solution_service = SolutionService()
-        results = await solution_service.search_solutions(
+        results = solution_service.search_solutions(
             query=query,
             max_results=settings.max_search_results,
             min_similarity=settings.similarity_threshold,
         )
         
         if not results:
-            await respond(
+            respond(
                 text=f"ℹ️ *\"{query}\"* ile ilgili kayıtlı bir çözüm bulunamadı.\n\n"
                      "💡 İpucu: Farklı anahtar kelimelerle aramayı deneyin veya "
                      "sorunu daha detaylı açıklayın.",
@@ -83,7 +83,7 @@ async def handle_search_command(
         # Format results
         blocks = format_search_results(query, results)
         
-        await respond(
+        respond(
             blocks=blocks,
             text=f"{len(results)} çözüm bulundu",  # Fallback text
             response_type="in_channel",  # Make visible to all
@@ -91,7 +91,7 @@ async def handle_search_command(
         
     except Exception as e:
         logger.error("Search command failed", error=str(e))
-        await respond(
+        respond(
             text="⚠️ Arama sırasında bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
             response_type="ephemeral",
         )
@@ -181,7 +181,7 @@ def format_search_results(query: str, results: list[dict]) -> list[dict]:
     return blocks
 
 
-async def handle_cozum_getir_command(
+def handle_cozum_getir_command(
     ack: Ack,
     respond: Respond,
     command: dict,
@@ -194,7 +194,7 @@ async def handle_cozum_getir_command(
     
     Analyzes the current thread and suggests relevant solutions.
     """
-    await ack()
+    ack()
     
     user_id = command.get("user_id")
     channel_id = command.get("channel_id")
@@ -209,7 +209,7 @@ async def handle_cozum_getir_command(
         channel=channel_id,
     )
     
-    await respond(
+    respond(
         text="🔍 Bu komutu bir hata thread'inin içinde kullanın.\n\n"
              "Thread'e girin ve `/cozum-getir` komutunu orada çalıştırın. "
              "Sistem thread'deki konuşmayı analiz edip çözüm önerecektir.\n\n"
@@ -219,7 +219,7 @@ async def handle_cozum_getir_command(
     )
 
 
-async def handle_cozum_ekle_command(
+def handle_cozum_ekle_command(
     ack: Ack,
     respond: Respond,
     command: dict,
@@ -233,7 +233,7 @@ async def handle_cozum_ekle_command(
     Immediately analyzes the current thread and adds it as a solution,
     bypassing the 12-hour waiting rule.
     """
-    await ack()
+    ack()
     
     user_id = command.get("user_id")
     channel_id = command.get("channel_id")
@@ -244,7 +244,7 @@ async def handle_cozum_ekle_command(
         channel=channel_id,
     )
     
-    await respond(
+    respond(
         text="📝 Bu komutu çözümün bulunduğu thread'in içinde kullanın.\n\n"
              "Thread'e girin ve `/cozum-ekle` komutunu orada çalıştırın. "
              "Sistem konuşmayı analiz edip çözümü hemen kaydedecektir.\n\n"
@@ -383,16 +383,16 @@ def register_commands(app: App) -> None:
         app: The Slack App instance
     """
     
-    @app.command("/search")
-    async def search_command(ack, respond, command, client):
-        await handle_search_command(ack, respond, command, client)
+    @app.command("/cozum-ara")
+    def search_command(ack, respond, command, client):
+        handle_search_command(ack, respond, command, client)
     
     @app.command("/cozum-getir")
-    async def cozum_getir_command(ack, respond, command, client):
-        await handle_cozum_getir_command(ack, respond, command, client)
+    def cozum_getir_command(ack, respond, command, client):
+        handle_cozum_getir_command(ack, respond, command, client)
     
     @app.command("/cozum-ekle")
-    async def cozum_ekle_command(ack, respond, command, client):
-        await handle_cozum_ekle_command(ack, respond, command, client)
+    def cozum_ekle_command(ack, respond, command, client):
+        handle_cozum_ekle_command(ack, respond, command, client)
     
     logger.info("Slack slash commands registered")

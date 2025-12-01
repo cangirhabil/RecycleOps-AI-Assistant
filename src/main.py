@@ -1,18 +1,13 @@
 """
 RecycleOps AI Assistant - Main Application Entry Point
 """
-import asyncio
 import signal
 import sys
-from typing import NoReturn
+import time
 
 import structlog
 
 from src.config import settings
-from src.slack.bot import create_slack_app, start_slack_app
-from src.database.connection import init_database
-from src.database.vector_store import init_vector_store
-from src.learning.scheduler import start_scheduler, stop_scheduler
 
 
 # Configure structured logging
@@ -26,8 +21,7 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer() if settings.log_format == "json" 
-        else structlog.dev.ConsoleRenderer(),
+        structlog.dev.ConsoleRenderer(),
     ],
     wrapper_class=structlog.stdlib.BoundLogger,
     context_class=dict,
@@ -38,68 +32,48 @@ structlog.configure(
 logger = structlog.get_logger(__name__)
 
 
-async def startup() -> None:
-    """Initialize all application components."""
+def main():
+    """Main entry point for the application."""
     logger.info("Starting RecycleOps AI Assistant...")
     
-    # Initialize database
-    logger.info("Initializing database connection...")
-    await init_database()
-    
-    # Initialize vector store
-    logger.info("Initializing vector store...")
-    init_vector_store()
-    
-    # Start background scheduler for 12-hour rule
-    logger.info("Starting background scheduler...")
-    start_scheduler()
-    
-    logger.info("Startup complete!")
-
-
-async def shutdown() -> None:
-    """Gracefully shutdown all components."""
-    logger.info("Shutting down RecycleOps AI Assistant...")
-    
-    # Stop scheduler
-    stop_scheduler()
-    
-    logger.info("Shutdown complete!")
-
-
-def main() -> NoReturn:
-    """Main entry point for the application."""
-    # Setup signal handlers for graceful shutdown
-    def signal_handler(signum, frame):
-        logger.info(f"Received signal {signum}, initiating shutdown...")
-        asyncio.create_task(shutdown())
-        sys.exit(0)
-    
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
     try:
-        # Run startup tasks
-        asyncio.run(startup())
+        # Step 1: Initialize ChromaDB FIRST (before Slack)
+        logger.info("Step 1/3: Initializing vector store...")
+        from src.database.vector_store import init_vector_store, VectorStore
+        init_vector_store()
         
-        # Create and start Slack app
+        # Pre-warm the VectorStore
+        vs = VectorStore()
+        logger.info(f"Vector store ready: {vs.get_collection_stats()}")
+        
+        # Step 2: Pre-warm embeddings
+        logger.info("Step 2/3: Warming up embeddings...")
+        from src.rag.embeddings import embed_text
+        _ = embed_text("warmup test")
+        logger.info("Embeddings ready!")
+        
+        # Step 3: Now start Slack (after everything is ready)
+        logger.info("Step 3/3: Starting Slack bot...")
+        from src.slack.bot import create_slack_app, start_slack_app
         app = create_slack_app()
         
-        logger.info(
-            "RecycleOps AI Assistant is running!",
-            monitored_channels=settings.monitor_channel_ids,
-        )
+        logger.info("=" * 50)
+        logger.info("RecycleOps AI Assistant is READY!")
+        logger.info("You can now use /cozum-ara in Slack")
+        logger.info("=" * 50)
         
         # Start Slack app (this blocks)
         start_slack_app(app)
         
     except KeyboardInterrupt:
-        logger.info("Received keyboard interrupt")
-        asyncio.run(shutdown())
+        logger.info("Shutting down...")
     except Exception as e:
-        logger.exception("Fatal error occurred", error=str(e))
-        asyncio.run(shutdown())
+        logger.exception("Fatal error", error=str(e))
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":

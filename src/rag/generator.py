@@ -1,11 +1,11 @@
 """
 RecycleOps AI Assistant - Generator
 
-LLM-based response generation using OpenAI.
+LLM-based response generation using Google Gemini.
 """
 from typing import Optional
 
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 import structlog
 
@@ -15,29 +15,29 @@ from src.config import settings
 logger = structlog.get_logger(__name__)
 
 # Singleton LLM instance
-_llm: Optional[ChatOpenAI] = None
+_llm: Optional[ChatGoogleGenerativeAI] = None
 
 
-def get_llm() -> ChatOpenAI:
+def get_llm() -> ChatGoogleGenerativeAI:
     """
-    Get the OpenAI LLM instance.
+    Get the Google Gemini LLM instance.
     
     Returns:
-        Configured ChatOpenAI instance
+        Configured ChatGoogleGenerativeAI instance
     """
     global _llm
     
     if _llm is None:
         logger.info(
-            "Initializing OpenAI LLM",
-            model=settings.openai_model,
+            "Initializing Google Gemini LLM",
+            model=settings.gemini_model,
         )
         
-        _llm = ChatOpenAI(
-            api_key=settings.openai_api_key,
-            model=settings.openai_model,
+        _llm = ChatGoogleGenerativeAI(
+            google_api_key=settings.google_api_key,
+            model=settings.gemini_model,
             temperature=0.3,  # Lower temperature for more consistent responses
-            max_tokens=1500,
+            max_output_tokens=1500,
         )
     
     return _llm
@@ -101,7 +101,7 @@ class ResponseGenerator:
     def __init__(self):
         self.llm = get_llm()
     
-    async def generate_solution_response(
+    def generate_solution_response(
         self,
         query: str,
         retrieved_solutions: list[dict],
@@ -141,7 +141,7 @@ bulunamadıysa alternatif öneriler sun."""
             HumanMessage(content=user_message),
         ]
         
-        response = await self.llm.ainvoke(messages)
+        response = self.llm.invoke(messages)
         
         logger.info(
             "Generated solution response",
@@ -151,7 +151,7 @@ bulunamadıysa alternatif öneriler sun."""
         
         return response.content
     
-    async def analyze_conversation(
+    def analyze_conversation(
         self,
         messages: list[dict],
     ) -> dict:
@@ -183,12 +183,12 @@ MAKINE_TIPI: [varsa makine kodu]
 KATEGORI: [kategori adı]
 BASARILI: [evet/hayır]"""
 
-        messages = [
+        llm_messages = [
             SystemMessage(content=SYSTEM_PROMPTS["conversation_analysis"]),
             HumanMessage(content=user_message),
         ]
         
-        response = await self.llm.ainvoke(messages)
+        response = self.llm.invoke(llm_messages)
         
         # Parse the response
         result = self._parse_analysis_response(response.content)
@@ -236,7 +236,7 @@ BASARILI: [evet/hayır]"""
         
         return result
     
-    async def generate_proactive_suggestion(
+    def generate_proactive_suggestion(
         self,
         error_text: str,
         similar_solutions: list[dict],
@@ -275,11 +275,11 @@ olası çözümü öner. 2-3 cümleyi geçme."""
             HumanMessage(content=user_message),
         ]
         
-        response = await self.llm.ainvoke(messages)
+        response = self.llm.invoke(messages)
         
         return response.content
     
-    async def suggest_expert(
+    def suggest_expert(
         self,
         error_text: str,
         available_experts: list[dict],
@@ -315,7 +315,7 @@ En uygun uzmanı öner ve neden bu kişiyi önerdiğini kısaca açıkla."""
             HumanMessage(content=user_message),
         ]
         
-        response = await self.llm.ainvoke(messages)
+        response = self.llm.invoke(messages)
         
         return response.content
 

@@ -32,7 +32,7 @@ class SolutionService:
         self.rag_chain = get_rag_chain()
         self.vector_store = get_vector_store()
     
-    async def search_solutions(
+    def search_solutions(
         self,
         query: str,
         max_results: int = 3,
@@ -54,7 +54,7 @@ class SolutionService:
             List of matching solutions
         """
         # Use RAG chain for intelligent search
-        rag_response = await self.rag_chain.query(
+        rag_response = self.rag_chain.query(
             question=query,
             n_results=max_results,
             min_similarity=min_similarity,
@@ -62,57 +62,25 @@ class SolutionService:
             machine_type=machine_type,
         )
         
-        # Enrich results with database information
-        enriched_results = []
-        async with get_async_session() as session:
-            solution_repo = SolutionRepository(session)
-            
-            for source in rag_response.sources:
-                result = {
-                    "id": source.get("id"),
-                    "similarity": source.get("similarity", 0),
-                    "error_pattern": source.get("error_pattern", ""),
-                    "solution_summary": source.get("solution_preview", ""),
-                    "category": source.get("category"),
-                    "machine_type": source.get("machine_type"),
-                }
-                
-                # Try to get full solution from database
-                if source.get("id"):
-                    try:
-                        solution_id = uuid.UUID(source["id"])
-                        db_solution = await solution_repo.get_by_id(solution_id)
-                        
-                        if db_solution:
-                            result.update({
-                                "solution_text": db_solution.solution_text,
-                                "solution_steps": db_solution.solution_steps,
-                                "root_cause": db_solution.root_cause,
-                                "success_rate": db_solution.success_rate,
-                                "verified": db_solution.verified,
-                                "source_channel_id": db_solution.source_channel_id,
-                                "source_thread_ts": db_solution.source_thread_ts,
-                            })
-                            
-                            # Generate message link if we have source info
-                            if db_solution.source_channel_id and db_solution.source_thread_ts:
-                                result["source_link"] = (
-                                    f"https://slack.com/archives/"
-                                    f"{db_solution.source_channel_id}/p"
-                                    f"{db_solution.source_thread_ts.replace('.', '')}"
-                                )
-                    except (ValueError, Exception) as e:
-                        logger.warning(f"Could not fetch solution details: {e}")
-                
-                enriched_results.append(result)
+        # Return sources directly for now (skip DB enrichment to simplify)
+        results = []
+        for source in rag_response.sources:
+            results.append({
+                "id": source.get("id"),
+                "similarity": source.get("similarity", 0),
+                "error_pattern": source.get("error_pattern", ""),
+                "solution_summary": source.get("solution_preview", ""),
+                "category": source.get("category"),
+                "machine_type": source.get("machine_type"),
+            })
         
         logger.info(
             "Solution search completed",
             query=query[:50],
-            results_count=len(enriched_results),
+            results_count=len(results),
         )
         
-        return enriched_results
+        return results
     
     async def get_solution_by_id(self, solution_id: str) -> Optional[dict]:
         """
