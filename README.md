@@ -1,31 +1,31 @@
 # RecycleOps AI Assistant
 
-Slack üzerindeki hata kayıtlarını ve çözüm konuşmalarını otomatik olarak okuyan, öğrenen ve gelecekte benzer sorunlar yaşandığında teknik ekibe anında çözüm sunan yapay zeka destekli bir asistan.
+An AI-powered assistant that automatically reads error logs and solution conversations on Slack, learns from them, and provides instant solutions to the technical team when similar issues occur in the future.
 
-## 🎯 Amaç
+## 🎯 Purpose
 
-Sistemin temel amacı **"Kurumsal Hafıza"** oluşturmak ve teknik desteği hızlandırmaktır.
+The system's primary goal is to build **"Organizational Memory"** and accelerate technical support.
 
-## ⚙️ Sistem Nasıl Çalışır?
+## ⚙️ How the System Works
 
-Sistem sürekli bir döngü halinde 3 aşamada çalışır:
+The system operates in a continuous loop across 3 stages:
 
-1. **Dinleme ve Takip**: Slack kanallarına düşen tüm makine arıza bildirimlerini ve altına yazılan yorumları takip eder.
-2. **Akıllı Analiz ve Öğrenme**: Bir arıza ile ilgili konuşma bittiğinde (son mesajdan 12 saat sonra), yapay zeka tüm konuşmayı okur ve çözümü hafızasına kaydeder.
-3. **Destek ve Çözüm**: Yeni bir arıza meydana geldiğinde, asistan hafızasındaki geçmiş tecrübelere bakar ve çözüm önerir.
+1. **Listening and Tracking**: Monitors all machine failure notifications and comments in Slack channels.
+2. **Smart Analysis and Learning**: When a conversation about a failure ends (12 hours after the last message), the AI reads the entire conversation and saves the solution to its memory.
+3. **Support and Solutions**: When a new failure occurs, the assistant reviews past experiences in its memory and suggests solutions.
 
-## ✨ Temel Özellikler
+## ✨ Core Features
 
-| Özellik | Komut | Açıklama |
-|---------|-------|----------|
-| Otomatik Öğrenme | - | 12 saat kuralı ile konuşmaları otomatik analiz eder |
-| Akıllı Arama | `/search [sorun]` | Geçmiş çözümlerde arama yapar |
-| Konu İçi Öneri | `/cozum-getir` | Thread içindeki soruna çözüm önerir |
-| Hızlı Kayıt | `/cozum-ekle` | Konuşmayı anında hafızaya ekler |
-| Proaktif Destek | - | Yeni hatalara otomatik çözüm önerir |
-| Uzman Yönlendirme | - | Çözüm bulunamazsa uzman önerir |
+| Feature | Command | Description |
+|---------|---------|----------|
+| Automatic Learning | - | Automatically analyzes conversations using the 12-hour rule |
+| Smart Search | `/search [issue]` | Searches past solutions |
+| In-Thread Suggestions | `/cozum-getir` | Suggests solutions for thread issues |
+| Quick Save | `/cozum-ekle` | Instantly saves conversation to memory |
+| Proactive Support | - | Automatically suggests solutions for new errors |
+| Expert Routing | - | Suggests experts when no solution is found |
 
-## 🏗️ Teknoloji Stack
+## 🏗️ Technology Stack
 
 - **Backend**: Python 3.11+
 - **Slack**: Slack Bolt SDK
@@ -34,22 +34,22 @@ Sistem sürekli bir döngü halinde 3 aşamada çalışır:
 - **RAG**: LangChain + OpenAI
 - **Scheduling**: APScheduler
 
-## 📦 Kurulum
+## 📦 Installation
 
-### Gereksinimler
+### Requirements
 
 - Python 3.11+
 - PostgreSQL 15+
-- Docker & Docker Compose (opsiyonel)
+- Docker & Docker Compose (optional)
 
-### 1. Repository'yi Klonla
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/cangirhabil/RecycleOps-AI-Assistant.git
 cd RecycleOps-AI-Assistant
 ```
 
-### 2. Virtual Environment Oluştur
+### 2. Create Virtual Environment
 
 ```bash
 python -m venv .venv
@@ -59,7 +59,7 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Bağımlılıkları Yükle
+### 3. Install Dependencies
 
 ```bash
 pip install -e ".[dev]"
@@ -69,38 +69,38 @@ pip install -e ".[dev]"
 
 ```bash
 cp .env.example .env
-# .env dosyasını düzenle ve gerekli değerleri gir
+# Edit .env and enter required values
 ```
 
-### 5. Veritabanını Başlat
+### 5. Initialize Database
 
 ```bash
-# Docker ile
+# With Docker
 docker-compose up -d postgres
 
-# Migration'ları çalıştır
+# Run migrations
 alembic upgrade head
 ```
 
-### 6. Uygulamayı Başlat
+### 6. Start the Application
 
 ```bash
 python -m src.main
 ```
 
-## 🔧 Slack App Kurulumu
+## 🔧 Slack App Setup
 
-1. [Slack API](https://api.slack.com/apps) üzerinden yeni bir app oluşturun
-2. **Socket Mode** etkinleştirin
-3. **Event Subscriptions** altında şu event'leri ekleyin:
+1. Create a new app on [Slack API](https://api.slack.com/apps)
+2. Enable **Socket Mode**
+3. Add these events under **Event Subscriptions**:
    - `message.channels`
    - `message.groups`
    - `app_mention`
-4. **Slash Commands** ekleyin:
+4. Add **Slash Commands**:
    - `/search`
    - `/cozum-getir`
    - `/cozum-ekle`
-5. **OAuth Scopes** (Bot Token Scopes):
+5. Configure **OAuth Scopes** (Bot Token Scopes):
    - `channels:history`
    - `channels:read`
    - `chat:write`
@@ -109,30 +109,31 @@ python -m src.main
    - `groups:read`
    - `users:read`
 
-## 📁 Proje Yapısı
+## 📁 Project Structure
 
 ```
 RecycleOps-AI-Assistant/
 ├── src/
-│   ├── main.py              # Uygulama giriş noktası
-│   ├── config.py            # Konfigürasyon yönetimi
-│   ├── slack/               # Slack bot modülleri
-│   ├── rag/                 # RAG pipeline modülleri
-│   ├── learning/            # Otomatik öğrenme modülleri
-│   ├── database/            # Veritabanı modülleri
-│   ├── services/            # İş mantığı servisleri
-│   └── utils/               # Yardımcı fonksiyonlar
-├── tests/                   # Test dosyaları
-├── migrations/              # Alembic migration'ları
-└── data/chroma/             # ChromaDB verileri
+│   ├── main.py              # Application entry point
+│   ├── config.py            # Configuration management
+│   ├── slack/               # Slack bot modules
+│   ├── rag/                 # RAG pipeline modules
+│   ├── learning/            # Automatic learning modules
+│   ├── database/            # Database modules
+│   ├── services/            # Business logic services
+│   └── utils/               # Helper functions
+├── tests/                   # Test files
+├── migrations/              # Alembic migrations
+└── data/chroma/             # ChromaDB data
 ```
 
-## 🧪 Test
+## 🧪 Testing
 
 ```bash
 pytest tests/ -v --cov=src
 ```
 
-## 📝 Lisans
+## 📝 License
 
 MIT License
+
